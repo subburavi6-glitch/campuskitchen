@@ -342,7 +342,7 @@ router.post('/meals/attendance', authenticateToken1, async (req, res) => {
       create: {
         studentId: req.user.studentId,
         mealPlanId: mealId,
-        willAttend,
+        willAttend: willAttend !== undefined ? willAttend : true, // Default to true
         attended: false
       }
     });
@@ -484,11 +484,25 @@ router.put('/profile', authenticateToken1, async (req, res) => {
 // Upload profile photo
 router.post('/upload-photo', authenticateToken1, async (req, res) => {
   try {
-    const { photoData } = req.body; // Base64 image data
+    const { photoData } = req.body;
     
-    // In a real implementation, you would upload to cloud storage
-    // For now, we'll just save the base64 data
-    const photoUrl = `data:image/jpeg;base64,${photoData}`;
+    // Save image to server
+    const fs = require('fs');
+    const path = require('path');
+    
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'student-photos');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    
+    const filename = `student-${req.user.studentId}-${Date.now()}.jpg`;
+    const filepath = path.join(uploadsDir, filename);
+    
+    // Convert base64 to buffer and save
+    const buffer = Buffer.from(photoData, 'base64');
+    fs.writeFileSync(filepath, buffer);
+    
+    const photoUrl = `/uploads/student-photos/${filename}`;
     
     await req.prisma.student.update({
       where: { id: req.user.studentId },
@@ -776,7 +790,7 @@ router.get('/subscription-history', authenticateToken1, async (req, res) => {
   }
 });
 
-// Get notifications
+// Get notifications with enhanced data
 router.get('/notifications', authenticateToken1, async (req, res) => {
   try {
     const notifications = await req.prisma.notification.findMany({
@@ -786,6 +800,18 @@ router.get('/notifications', authenticateToken1, async (req, res) => {
           { studentId: null } // Global notifications
         ]
       },
+      include: {
+        // Include meal plan data for rating notifications
+        mealPlan: {
+          include: {
+            dishes: {
+              include: {
+                dish: true
+              }
+            }
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' },
       take: 50
     });
@@ -793,6 +819,26 @@ router.get('/notifications', authenticateToken1, async (req, res) => {
     res.json(notifications);
   } catch (error) {
     console.error('Get notifications error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get unread notification count
+router.get('/notifications/unread-count', authenticateToken1, async (req, res) => {
+  try {
+    const count = await req.prisma.notification.count({
+      where: {
+        OR: [
+          { studentId: req.user.studentId },
+          { studentId: null }
+        ],
+        read: false
+      }
+    });
+
+    res.json({ count });
+  } catch (error) {
+    console.error('Get unread count error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

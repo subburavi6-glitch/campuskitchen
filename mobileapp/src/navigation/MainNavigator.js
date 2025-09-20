@@ -15,10 +15,22 @@ import OrderHistoryScreen from '../screens/OrderHistoryScreen';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { apiService } from '../services/apiService';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+// Custom hook to refresh tab data
+const useTabRefresh = (refreshFunction) => {
+  const isFocused = useIsFocused();
+  
+  React.useEffect(() => {
+    if (isFocused) {
+      refreshFunction();
+    }
+  }, [isFocused]);
+};
 
 function DashboardStack() {
   const {user} = useAuth();
@@ -103,6 +115,32 @@ export default function MainNavigator() {
 
           return <Ionicons name={iconName} size={size} color={color} />;
         },
+        tabBarButton: (props) => (
+          <TouchableOpacity
+            {...props}
+            onPress={(e) => {
+              // Refresh tab data when pressed
+              if (props.accessibilityState?.selected) {
+                // Tab is already selected, refresh data
+                switch (props.route?.name) {
+                  case 'Dashboard':
+                    // Dashboard refresh is handled by useIsFocused
+                    break;
+                  case 'Order':
+                    // Order refresh
+                    break;
+                  case 'Subscription':
+                    // Subscription refresh
+                    break;
+                  case 'Profile':
+                    // Profile refresh
+                    break;
+                }
+              }
+              props.onPress?.(e);
+            }}
+          />
+        ),
         tabBarActiveTintColor: '#1c3c80',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,

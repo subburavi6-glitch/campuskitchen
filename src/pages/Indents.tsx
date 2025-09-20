@@ -1,6 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Filter, ClipboardList, Eye, Edit, Trash2, Check, X, Clock, Send } from 'lucide-react';
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  ClipboardList, 
+  Eye, 
+  Edit, 
+  Trash2, 
+  Check, 
+  X, 
+  Clock, 
+  Send,
+  Printer,
+  Package,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle
+} from 'lucide-react';
 import api from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
 import Modal from '../components/Modal';
@@ -12,7 +29,7 @@ import Swal from 'sweetalert2';
 interface Indent {
   id: string;
   meal: 'BREAKFAST' | 'LUNCH' | 'SNACKS' | 'DINNER';
-  status: 'PENDING' | 'APPROVED' | 'PARTIAL' | 'REJECTED' | 'SENT';
+  status: 'PENDING' | 'APPROVED' | 'PARTIAL' | 'REJECTED' | 'SENT' | 'COMPLETED';
   requestedForDate: string;
   requester: { name: string };
   notes?: string;
@@ -32,12 +49,20 @@ interface Indent {
   }>;
 }
 
+interface IndentStats {
+  totalIndents: number;
+  approvedIndents: number;
+  issuedIndents: number;
+  pendingIndents: number;
+}
+
 const statusColors = {
   PENDING: 'bg-yellow-100 text-yellow-800',
   APPROVED: 'bg-green-100 text-green-800',
   PARTIAL: 'bg-blue-100 text-blue-800',
   REJECTED: 'bg-red-100 text-red-800',
   SENT: 'bg-purple-100 text-purple-800',
+  COMPLETED: 'bg-gray-100 text-gray-800',
 };
 
 const mealColors = {
@@ -50,6 +75,12 @@ const mealColors = {
 const Indents: React.FC = () => {
   const { user } = useAuth();
   const [indents, setIndents] = useState<Indent[]>([]);
+  const [stats, setStats] = useState<IndentStats>({
+    totalIndents: 0,
+    approvedIndents: 0,
+    issuedIndents: 0,
+    pendingIndents: 0
+  });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -58,10 +89,12 @@ const Indents: React.FC = () => {
   const [selectedIndent, setSelectedIndent] = useState<Indent | null>(null);
   const [viewIndent, setViewIndent] = useState<Indent | null>(null);
   const [approvalIndent, setApprovalIndent] = useState<Indent | null>(null);
+  const [issueIndent, setIssueIndent] = useState<Indent | null>(null);
   const [showAutoIndentModal, setShowAutoIndentModal] = useState(false);
 
   useEffect(() => {
     fetchIndents();
+    fetchStats();
   }, [statusFilter, mealFilter]);
 
   const fetchIndents = async () => {
@@ -79,9 +112,19 @@ const Indents: React.FC = () => {
     }
   };
 
+  const fetchStats = async () => {
+    try {
+      const response = await api.get('/indents/stats');
+      setStats(response.data);
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    }
+  };
+
   const handleEdit = (indent: Indent) => {
-    if (indent.status !== 'PENDING' && user?.role !== 'CHEF' && user?.role !== 'ADMIN') {
-      showError('Access Denied', 'Only pending indents can be edited');
+    // Only allow edit for PENDING status and only for COOK role
+    if (indent.status !== 'PENDING' || user?.role !== 'COOK') {
+      showError('Access Denied', 'Only pending indents can be edited by cooks');
       return;
     }
     setSelectedIndent(indent);
@@ -89,8 +132,8 @@ const Indents: React.FC = () => {
   };
 
   const handleDelete = async (indent: Indent) => {
-    if (indent.status !== 'PENDING') {
-      showError('Access Denied', 'Only pending indents can be deleted');
+    if (indent.status !== 'PENDING' || user?.role !== 'COOK') {
+      showError('Access Denied', 'Only pending indents can be deleted by cooks');
       return;
     }
     
@@ -104,6 +147,7 @@ const Indents: React.FC = () => {
         await api.delete(`/indents/${indent.id}`);
         showSuccess('Success', 'Indent deleted successfully');
         fetchIndents();
+        fetchStats();
       } catch (error) {
         console.error('Failed to delete indent:', error);
       }
@@ -138,8 +182,48 @@ const Indents: React.FC = () => {
       await api.post(`/indents/${indent.id}/reject`, { reason });
       showSuccess('Success', 'Indent rejected successfully');
       fetchIndents();
+      fetchStats();
     } catch (error) {
       console.error('Failed to reject indent:', error);
+    }
+  };
+
+  const handleIssue = (indent: Indent) => {
+    setIssueIndent(indent);
+  };
+
+  const handleMarkReceived = async (indent: Indent) => {
+    const { value: comments } = await Swal.fire({
+      title: 'Mark as Received',
+      input: 'textarea',
+      inputLabel: 'Comments (optional)',
+      inputPlaceholder: 'Any comments about the received items...',
+      showCancelButton: true,
+      confirmButtonColor: '#1c3c80'
+    });
+
+    try {
+      await api.post(`/indents/${indent.id}/mark-received`, { comments });
+      showSuccess('Success', 'Indent marked as received');
+      fetchIndents();
+      fetchStats();
+    } catch (error) {
+      console.error('Failed to mark as received:', error);
+    }
+  };
+
+  const handlePrint = async (indent: Indent) => {
+    try {
+      const response = await api.get(`/indents/${indent.id}/print`);
+      // Open print dialog with formatted content
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(generatePrintHTML(response.data, 'indent'));
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error('Failed to print indent:', error);
     }
   };
 
@@ -151,34 +235,39 @@ const Indents: React.FC = () => {
       showSuccess('Success', 'Indent approved successfully');
       setApprovalIndent(null);
       fetchIndents();
+      fetchStats();
     } catch (error) {
       console.error('Failed to approve indent:', error);
     }
   };
 
-  const handleAutoIndent = async () => {
+  const handleIssueSubmit = async (items: any[]) => {
+    if (!issueIndent) return;
+
     try {
-      const response = await api.post('/indents/auto-generate', {
-        date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        meal: 'LUNCH'
-      });
-      showSuccess('Success', `Auto indent generated with ${response.data.itemCount} items`);
-      setShowAutoIndentModal(false);
+      await api.post(`/indents/${issueIndent.id}/issue`, { items });
+      showSuccess('Success', 'Items issued successfully');
+      setIssueIndent(null);
       fetchIndents();
+      fetchStats();
     } catch (error) {
-      console.error('Failed to generate auto indent:', error);
-      showError('Error', 'Failed to generate auto indent');
+      console.error('Failed to issue items:', error);
     }
   };
 
-  const handleMarkAsSent = async (indent: Indent) => {
+  const handleAutoIndent = async (selectedMeals: string[]) => {
     try {
-      await api.post(`/indents/${indent.id}/sent`, { comments: '' });
-      showSuccess('Success', 'Indent marked as sent');
+      const response = await api.post('/indents/auto-generate', {
+        date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        meals: selectedMeals
+      });
+      showSuccess('Success', `Auto indents generated for ${selectedMeals.length} meals`);
+      setShowAutoIndentModal(false);
       fetchIndents();
+      fetchStats();
     } catch (error) {
-      console.error('Failed to mark indent as sent:', error);
-      showError('Error', 'Failed to mark indent as sent');
+      console.error('Failed to generate auto indent:', error);
+      showError('Error', 'Failed to generate auto indent');
     }
   };
 
@@ -186,6 +275,7 @@ const Indents: React.FC = () => {
     setShowDrawer(false);
     setSelectedIndent(null);
     fetchIndents();
+    fetchStats();
   };
 
   const handleDrawerCancel = () => {
@@ -201,7 +291,8 @@ const Indents: React.FC = () => {
 
   const canCreate = user?.role === 'COOK' || user?.role === 'CHEF';
   const canApprove = user?.role === 'CHEF' || user?.role === 'ADMIN';
-  const canEdit = user?.role === 'CHEF' || user?.role === 'ADMIN';
+  const canIssue = user?.role === 'STORE';
+  const canReceive = user?.role === 'CHEF' || user?.role === 'COOK';
 
   if (loading) {
     return (
@@ -214,7 +305,7 @@ const Indents: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Indents</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Indents Management</h1>
         {canCreate && (
           <div className="flex space-x-2">
             <button
@@ -233,6 +324,76 @@ const Indents: React.FC = () => {
             </button>
           </div>
         )}
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-blue-50 rounded-lg p-6"
+        >
+          <div className="flex items-center">
+            <div className="bg-blue-500 p-3 rounded-lg">
+              <ClipboardList className="h-6 w-6 text-white" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Total This Month</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.totalIndents}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-green-50 rounded-lg p-6"
+        >
+          <div className="flex items-center">
+            <div className="bg-green-500 p-3 rounded-lg">
+              <CheckCircle className="h-6 w-6 text-white" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Approved</p>
+              <p className="text-2xl font-bold text-green-600">{stats.approvedIndents}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-purple-50 rounded-lg p-6"
+        >
+          <div className="flex items-center">
+            <div className="bg-purple-500 p-3 rounded-lg">
+              <Send className="h-6 w-6 text-white" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Issued</p>
+              <p className="text-2xl font-bold text-purple-600">{stats.issuedIndents}</p>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-yellow-50 rounded-lg p-6"
+        >
+          <div className="flex items-center">
+            <div className="bg-yellow-500 p-3 rounded-lg">
+              <Clock className="h-6 w-6 text-white" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.pendingIndents}</p>
+            </div>
+          </div>
+        </motion.div>
       </div>
 
       {/* Filters */}
@@ -259,6 +420,7 @@ const Indents: React.FC = () => {
             <option value="PARTIAL">Partial</option>
             <option value="REJECTED">Rejected</option>
             <option value="SENT">Sent</option>
+            <option value="COMPLETED">Completed</option>
           </select>
           <select
             value={mealFilter}
@@ -274,149 +436,174 @@ const Indents: React.FC = () => {
         </div>
       </div>
 
-      {/* Indents Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredIndents.map((indent, index) => (
-          <motion.div
-            key={indent.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="bg-white rounded-lg shadow hover:shadow-md transition-shadow p-6"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <ClipboardList size={24} className="text-blue-600" />
-                </div>
-                <div>
-                  <div className="flex items-center space-x-2 mb-1">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${mealColors[indent.meal]}`}>
-                      {indent.meal}
-                    </span>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[indent.status]}`}>
+      {/* Indents Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Indent Details
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Meal & Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Items & Cost
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredIndents.map((indent, index) => (
+                <motion.tr
+                  key={indent.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="hover:bg-gray-50"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                        <ClipboardList size={20} className="text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          by {indent.requester.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(indent.createdAt).toLocaleDateString()}
+                        </div>
+                        {indent.autoGenerated && (
+                          <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 mt-1">
+                            AUTO
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${mealColors[indent.meal]} mb-1`}>
+                        {indent.meal}
+                      </span>
+                      <div className="text-sm text-gray-900">
+                        {new Date(indent.requestedForDate).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {indent.items.length} items
+                      </div>
+                      <div className="text-sm font-bold text-green-600">
+                        ₹{indent.totalCost}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${statusColors[indent.status]}`}>
                       {indent.status}
                     </span>
-                    {indent.autoGenerated && (
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                        AUTO
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-500">by {indent.requester.name}</p>
-                </div>
-              </div>
-              <Clock size={20} className="text-gray-400" />
-            </div>
-
-            <div className="space-y-2 mb-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Requested for:</span>
-                <span className="font-medium">
-                  {new Date(indent.requestedForDate).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Items:</span>
-                <span className="font-medium">{indent.items.length}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Created:</span>
-                <span className="font-medium">
-                  {new Date(indent.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Estimated Cost:</span>
-                <span className="font-bold text-green-600">₹{indent.totalCost}</span>
-              </div>
-            </div>
-
-            {indent.notes && (
-              <div className="mb-4 p-2 bg-gray-50 rounded text-sm text-gray-600">
-                {indent.notes}
-              </div>
-            )}
-
-            <div className="pt-4 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleView(indent)}
-                    className="text-blue-600 hover:text-blue-800 p-1 rounded"
-                    title="View Details"
-                  >
-                    <Eye size={16} />
-                  </button>
-                  {(canEdit || (indent.status === 'PENDING' && indent.requester.name === user?.name)) && (
-                    <button
-                      onClick={() => handleEdit(indent)}
-                      className="text-green-600 hover:text-green-800 p-1 rounded"
-                      title="Edit Indent"
-                    >
-                      <Edit size={16} />
-                    </button>
-                  )}
-                  {indent.status === 'PENDING' && indent.requester.name === user?.name && (
-                    <button
-                      onClick={() => handleDelete(indent)}
-                      className="text-red-600 hover:text-red-800 p-1 rounded"
-                      title="Delete Indent"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
-                </div>
-                {canApprove && indent.status === 'PENDING' && (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleApprove(indent)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
-                    >
-                      <Check size={14} />
-                      <span>Approve</span>
-                    </button>
-                    <button
-                      onClick={() => handleReject(indent)}
-                      className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
-                    >
-                      <X size={14} />
-                      <span>Reject</span>
-                    </button>
-                  </div>
-                )}
-                {canApprove && indent.status === 'APPROVED' && (
-                  <button
-                    onClick={() => handleMarkAsSent(indent)}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
-                  >
-                    <Send size={14} />
-                    <span>Mark Sent</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {filteredIndents.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <ClipboardList size={48} className="mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No indents found</h3>
-          <p className="text-gray-500 mb-4">
-            {searchTerm || statusFilter || mealFilter ? 'Try adjusting your filters' : 'Get started by creating your first indent'}
-          </p>
-          {canCreate && (
-            <button
-              onClick={() => setShowDrawer(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-            >
-              Create Indent
-            </button>
-          )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex items-center justify-end space-x-2">
+                      <button
+                        onClick={() => handleView(indent)}
+                        className="text-blue-600 hover:text-blue-800 p-1 rounded"
+                        title="View Details"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={() => handlePrint(indent)}
+                        className="text-gray-600 hover:text-gray-800 p-1 rounded"
+                        title="Print Indent"
+                      >
+                        <Printer size={16} />
+                      </button>
+                      
+                      {/* Cook Actions */}
+                      {user?.role === 'COOK' && indent.status === 'PENDING' && (
+                        <button
+                          onClick={() => handleEdit(indent)}
+                          className="text-green-600 hover:text-green-800 p-1 rounded"
+                          title="Edit Indent"
+                        >
+                          <Edit size={16} />
+                        </button>
+                      )}
+                      
+                      {/* Chef Actions */}
+                      {canApprove && indent.status === 'PENDING' && (
+                        <>
+                          <button
+                            onClick={() => handleApprove(indent)}
+                            className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleReject(indent)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      
+                      {/* Store Actions */}
+                      {canIssue && indent.status === 'APPROVED' && (
+                        <button
+                          onClick={() => handleIssue(indent)}
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs"
+                        >
+                          Issue
+                        </button>
+                      )}
+                      
+                      {/* Receive Actions */}
+                      {canReceive && indent.status === 'SENT' && (
+                        <button
+                          onClick={() => handleMarkReceived(indent)}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs"
+                        >
+                          Received
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+
+        {filteredIndents.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <ClipboardList size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No indents found</h3>
+            <p className="text-gray-500 mb-4">
+              {searchTerm || statusFilter || mealFilter ? 'Try adjusting your filters' : 'Get started by creating your first indent'}
+            </p>
+            {canCreate && (
+              <button
+                onClick={() => setShowDrawer(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              >
+                Create Indent
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Indent Form Drawer */}
       <Drawer
@@ -431,6 +618,51 @@ const Indents: React.FC = () => {
           onCancel={handleDrawerCancel}
         />
       </Drawer>
+
+      {/* Auto Indent Generation Modal */}
+      <Modal
+        isOpen={showAutoIndentModal}
+        onClose={() => setShowAutoIndentModal(false)}
+        title="Auto Generate Indents"
+        size="md"
+      >
+        <AutoIndentForm
+          onGenerate={handleAutoIndent}
+          onCancel={() => setShowAutoIndentModal(false)}
+        />
+      </Modal>
+
+      {/* Approval Modal */}
+      <Modal
+        isOpen={!!approvalIndent}
+        onClose={() => setApprovalIndent(null)}
+        title="Approve Indent"
+        size="xl"
+      >
+        {approvalIndent && (
+          <ApprovalForm
+            indent={approvalIndent}
+            onSubmit={handleApprovalSubmit}
+            onCancel={() => setApprovalIndent(null)}
+          />
+        )}
+      </Modal>
+
+      {/* Issue Modal */}
+      <Modal
+        isOpen={!!issueIndent}
+        onClose={() => setIssueIndent(null)}
+        title="Issue Items"
+        size="xl"
+      >
+        {issueIndent && (
+          <IssueForm
+            indent={issueIndent}
+            onSubmit={handleIssueSubmit}
+            onCancel={() => setIssueIndent(null)}
+          />
+        )}
+      </Modal>
 
       {/* Indent View Modal */}
       <Modal
@@ -461,6 +693,10 @@ const Indents: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-500">Requested For</label>
                 <p className="text-lg">{new Date(viewIndent.requestedForDate).toLocaleDateString()}</p>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-500">Total Cost</label>
+                <p className="text-2xl font-bold text-green-600">₹{viewIndent.totalCost}</p>
               </div>
             </div>
 
@@ -511,92 +747,64 @@ const Indents: React.FC = () => {
           </div>
         )}
       </Modal>
-
-      {/* Auto Indent Generation Modal */}
-      <Modal
-        isOpen={showAutoIndentModal}
-        onClose={() => setShowAutoIndentModal(false)}
-        title="Auto Generate Indent"
-        size="md"
-      >
-        <AutoIndentForm
-          onGenerate={handleAutoIndent}
-          onCancel={() => setShowAutoIndentModal(false)}
-        />
-      </Modal>
-
-      {/* Approval Modal */}
-      <Modal
-        isOpen={!!approvalIndent}
-        onClose={() => setApprovalIndent(null)}
-        title="Approve Indent"
-        size="xl"
-      >
-        {approvalIndent && (
-          <ApprovalForm
-            indent={approvalIndent}
-            onSubmit={handleApprovalSubmit}
-            onCancel={() => setApprovalIndent(null)}
-          />
-        )}
-      </Modal>
     </div>
   );
 };
 
 // Auto Indent Generation Form
 const AutoIndentForm: React.FC<{
-  onGenerate: () => void;
+  onGenerate: (meals: string[]) => void;
   onCancel: () => void;
 }> = ({ onGenerate, onCancel }) => {
   const [selectedDate, setSelectedDate] = useState(
     new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   );
-  const [selectedMeal, setSelectedMeal] = useState('LUNCH');
+  const [selectedMeals, setSelectedMeals] = useState<string[]>(['LUNCH']);
+
+  const mealOptions = ['BREAKFAST', 'LUNCH', 'SNACKS', 'DINNER'];
+
+  const toggleMeal = (meal: string) => {
+    setSelectedMeals(prev => 
+      prev.includes(meal) 
+        ? prev.filter(m => m !== meal)
+        : [...prev, meal]
+    );
+  };
 
   return (
     <div className="space-y-6">
       <div className="bg-blue-50 p-4 rounded-lg">
-        <h4 className="font-medium text-blue-900 mb-2">Auto Generate Indent</h4>
+        <h4 className="font-medium text-blue-900 mb-2">Auto Generate Indents</h4>
         <p className="text-sm text-blue-800">
-          System will automatically calculate ingredient requirements from all meal plans
+          System will automatically calculate ingredient requirements from all meal plans for selected meals
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Meal</label>
-          <select
-            value={selectedMeal}
-            onChange={(e) => setSelectedMeal(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="BREAKFAST">Breakfast</option>
-            <option value="LUNCH">Lunch</option>
-            <option value="SNACKS">Snacks</option>
-            <option value="DINNER">Dinner</option>
-          </select>
-        </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
       </div>
 
-      <div className="bg-green-50 p-4 rounded-lg">
-        <h5 className="font-medium text-green-900 mb-2">Auto Generation Process:</h5>
-        <ul className="text-sm text-green-800 space-y-1">
-          <li>• Pull all meal plans for selected date and meal</li>
-          <li>• Extract dishes from meal plans</li>
-          <li>• Calculate ingredient requirements from recipes</li>
-          <li>• Sum up quantities for all ingredients</li>
-          <li>• Calculate total estimated cost</li>
-        </ul>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Select Meals</label>
+        <div className="grid grid-cols-2 gap-2">
+          {mealOptions.map(meal => (
+            <label key={meal} className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedMeals.includes(meal)}
+                onChange={() => toggleMeal(meal)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <span className="text-sm text-gray-700">{meal}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="flex justify-end space-x-3 pt-6 border-t">
@@ -607,10 +815,11 @@ const AutoIndentForm: React.FC<{
           Cancel
         </button>
         <button
-          onClick={onGenerate}
-          className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-lg hover:bg-green-700"
+          onClick={() => onGenerate(selectedMeals)}
+          disabled={selectedMeals.length === 0}
+          className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-lg hover:bg-green-700 disabled:opacity-50"
         >
-          Generate Auto Indent
+          Generate Indents
         </button>
       </div>
     </div>
@@ -623,8 +832,6 @@ const ApprovalForm: React.FC<{
   onSubmit: (items: any[]) => void;
   onCancel: () => void;
 }> = ({ indent, onSubmit, onCancel }) => {
-
-  console.log(indent);
   const [items, setItems] = useState(
     indent.items.map(item => ({
       itemId: item.item.id,
@@ -696,6 +903,208 @@ const ApprovalForm: React.FC<{
       </div>
     </form>
   );
+};
+
+// Issue Form Component
+const IssueForm: React.FC<{
+  indent: Indent;
+  onSubmit: (items: any[]) => void;
+  onCancel: () => void;
+}> = ({ indent, onSubmit, onCancel }) => {
+  const [items, setItems] = useState(
+    indent.items.map(item => ({
+      itemId: item.item.id,
+      batchId: '',
+      qty: parseFloat(item.approvedQty) - item.issuedQty
+    }))
+  );
+  const [availableBatches, setAvailableBatches] = useState<any>({});
+
+  useEffect(() => {
+    fetchBatches();
+  }, []);
+
+  const fetchBatches = async () => {
+    const batchPromises = indent.items.map(async (item) => {
+      const response = await api.get(`/items/${item.item.id}/batches`);
+      return { itemId: item.item.id, batches: response.data };
+    });
+    
+    const batchResults = await Promise.all(batchPromises);
+    const batchMap = batchResults.reduce((acc, result) => {
+      acc[result.itemId] = result.batches;
+      return acc;
+    }, {});
+    
+    setAvailableBatches(batchMap);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(items);
+  };
+
+  const updateItem = (index: number, field: string, value: any) => {
+    const newItems = [...items];
+    newItems[index] = { ...newItems[index], [field]: value };
+    setItems(newItems);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="bg-purple-50 p-4 rounded-lg">
+        <h4 className="font-medium text-purple-900">
+          Issuing items for {indent.meal} - {new Date(indent.requestedForDate).toLocaleDateString()}
+        </h4>
+        <p className="text-sm text-purple-700">Requested by: {indent.requester.name}</p>
+      </div>
+
+      <div className="space-y-4">
+        {indent.items.map((item, index) => {
+          const batches = availableBatches[item.item.id] || [];
+          const remainingToIssue = parseFloat(item.approvedQty) - item.issuedQty;
+          
+          return (
+            <div key={index} className="grid grid-cols-4 gap-4 items-end p-4 bg-gray-50 rounded-lg">
+              <div>
+                <p className="font-medium text-gray-900">{item.item.name}</p>
+                <p className="text-sm text-gray-500">
+                  Approved: {item.approvedQty}, Issued: {item.issuedQty}
+                </p>
+                <p className="text-sm text-blue-600">
+                  Remaining: {remainingToIssue}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Batch</label>
+                <select
+                  value={items[index].batchId}
+                  onChange={(e) => updateItem(index, 'batchId', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select Batch</option>
+                  {batches.map((batch: any) => (
+                    <option key={batch.id} value={batch.id}>
+                      {batch.batchNo} (Available: {batch.qtyOnHand})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Issue Qty</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  max={remainingToIssue}
+                  value={items[index].qty}
+                  onChange={(e) => updateItem(index, 'qty', parseFloat(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">
+                  Max: {remainingToIssue}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-6 border-t">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-lg hover:bg-purple-700"
+        >
+          Issue Items
+        </button>
+      </div>
+    </form>
+  );
+};
+
+// Print HTML Generator
+const generatePrintHTML = (data: any, type: 'indent' | 'po' | 'grn') => {
+  const currentDate = new Date().toLocaleDateString();
+  
+  if (type === 'indent') {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Indent - ${data.meal}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1c3c80; padding-bottom: 20px; }
+          .logo { font-size: 24px; font-weight: bold; color: #1c3c80; }
+          .details { margin: 20px 0; }
+          .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          .table th { background-color: #f5f5f5; }
+          .footer { margin-top: 50px; }
+          .signature { margin-top: 40px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="logo">FOOD SERVICE MANAGEMENT</div>
+          <h2>INDENT REQUEST</h2>
+        </div>
+        
+        <div class="details">
+          <p><strong>Meal:</strong> ${data.meal}</p>
+          <p><strong>Requested For:</strong> ${new Date(data.requestedForDate).toLocaleDateString()}</p>
+          <p><strong>Requested By:</strong> ${data.requester.name}</p>
+          <p><strong>Date:</strong> ${currentDate}</p>
+          <p><strong>Status:</strong> ${data.status}</p>
+          <p><strong>Total Cost:</strong> ₹${data.totalCost}</p>
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Item Name</th>
+              <th>Unit</th>
+              <th>Requested Qty</th>
+              <th>Approved Qty</th>
+              <th>Estimated Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.items.map((item: any) => `
+              <tr>
+                <td>${item.item.name}</td>
+                <td>${typeof item.item.unit === 'object' ? (item.item.unit.symbol ?? item.item.unit.name ?? '') : item.item.unit}</td>
+                <td>${item.requestedQty}</td>
+                <td>${item.approvedQty}</td>
+                <td>₹${item.estimatedCost}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+
+        <div class="footer">
+          <div class="signature">
+            <p>Authorized By: _________________________</p>
+            <p>Date: _________________________</p>
+            <p>Signature: _________________________</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+  }
+  
+  return '';
 };
 
 export default Indents;

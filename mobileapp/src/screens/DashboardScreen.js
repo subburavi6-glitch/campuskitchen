@@ -17,6 +17,7 @@ export default function DashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [currentSubscription, setCurrentSubscription] = useState(null);
 const [hasActivePackage, setHasActivePackage] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
  const isFocused = useIsFocused();
   useEffect(() => {
     if(isFocused){
@@ -31,16 +32,18 @@ const [hasActivePackage, setHasActivePackage] = useState(false);
 
   const loadDashboardData = async () => {
     try {
-      const [mealsData, qrData, subscriptionData] = await Promise.all([
+      const [mealsData, qrData, subscriptionData, notificationCount] = await Promise.all([
         apiService.getTodaysMeals(),
         apiService.generateQRCode(),
-        apiService.getCurrentSubscription()
+        apiService.getCurrentSubscription(),
+        apiService.getUnreadNotificationCount()
       ]);
 console.log('Today meals data:', qrData);
       setTodaysMeals(mealsData);
       setQrCode('SUB-'+user.registerNumber || "notvalid");
       setHasActivePackage(qrData.status=='active' ? true : false);
       setCurrentSubscription(subscriptionData);
+      setUnreadCount(notificationCount.count);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -114,7 +117,16 @@ console.log('Today meals data:', qrData);
               onPress={() => navigation.navigate('Notifications')}
               className="w-12 h-12 bg-white bg-opacity-20 rounded-full items-center justify-center"
             >
-              <Ionicons name="notifications" size={24} color="#1c3c80" />
+              <View>
+                <Ionicons name="notifications" size={24} color="#1c3c80" />
+                {unreadCount > 0 && (
+                  <View className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full items-center justify-center">
+                    <Text className="text-white text-xs font-bold">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </TouchableOpacity>
           </View>
         </View>

@@ -36,55 +36,78 @@ router.get('/', authenticateToken, async (req, res) => {
 // Create/Update meal plan
 router.post('/', authenticateToken, requireRole(['CHEF', 'ADMIN', 'FNB_MANAGER']), async (req, res) => {
   try {
-    const { messFacilityId, day, meal, dishes, plannedStudents } = req.body;
+    const { messFacilityIds, day, meal, dishes } = req.body;
 
-    // Delete existing meal plan if it exists
-    await req.prisma.mealPlan.deleteMany({
-      where: {
-        messFacilityId,
-        day,
-        meal
-      }
-    });
+    const createdPlans = [];
 
-    // Create new meal plan with multiple dishes
-    const mealPlan = await req.prisma.mealPlan.create({
-      data: {
-        messFacilityId,
-        day,
-        meal,
-        plannedStudents,
-        dishes: {
-          create: dishes.map((dish) => ({
-            dishId: dish.dishId,
-            sequenceOrder: dish.sequenceOrder,
-            isMainDish: dish.isMainDish
-          }))
+    // Create meal plan for each selected facility
+    for (const messFacilityId of messFacilityIds) {
+      // Get planned students from active subscriptions
+      const plannedStudents = await req.prisma.subscription.count({
+        where: {
+          messFacilityId,
+          status: 'ACTIVE',
+          package: {
+            mealsIncluded: {
+              has: meal
+            }
+          }
         }
-      },
-      include: {
-        dishes: {
-          include: {
-            dish: {
-              include: {
-                recipes: {
-                  include: {
-                    item: {
-                      select: { name: true, unit: true }
+      });
+
+      // Delete existing meal plan if it exists
+      await req.prisma.mealPlan.deleteMany({
+        where: {
+          messFacilityId,
+          day,
+          meal
+        }
+      });
+
+      // Create new meal plan with multiple dishes
+      const mealPlan = await req.prisma.mealPlan.create({
+        data: {
+          messFacilityId,
+          day,
+          meal,
+          plannedStudents,
+          dishes: {
+            create: dishes.map((dish) => ({
+              dishId: dish.dishId,
+              sequenceOrder: dish.sequenceOrder,
+              isMainDish: dish.isMainDish
+            }))
+          }
+        },
+        include: {
+          dishes: {
+            include: {
+              dish: {
+                include: {
+                  recipes: {
+                    include: {
+                      item: {
+                        select: { name: true, unit: true }
+                      }
                     }
                   }
                 }
               }
             }
+          },
+          messFacility: {
+            select: { name: true }
           }
-        },
-        messFacility: {
-          select: { name: true }
         }
-      }
-    });
+      });
 
-    res.json(mealPlan);
+      createdPlans.push(mealPlan);
+    }
+
+    res.json({
+      message: `Created meal plans for ${createdPlans.length} facilities`,
+      plans: createdPlans
+    });
   } catch (error) {
     console.error('Create/Update meal plan error:', error);
     res.status(500).json({ error: 'Internal server error' });

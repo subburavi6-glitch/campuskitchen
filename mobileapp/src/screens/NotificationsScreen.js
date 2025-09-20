@@ -44,6 +44,37 @@ export default function NotificationsScreen() {
     }
   };
 
+  const handleNotificationPress = (notification) => {
+    // Mark as read first
+    if (!notification.read && notification.type !== 'local') {
+      handleMarkAsRead(notification.id);
+    }
+
+    // Navigate based on notification type
+    if (notification.type === 'rating' && notification.mealPlan) {
+      navigation.navigate('MealRating', { 
+        meal: {
+          id: notification.mealPlan.id,
+          dishName: notification.mealPlan.dishes.map(d => d.dish.name).join(', '),
+          mealType: notification.mealPlan.meal,
+          time: getMealTime(notification.mealPlan.meal)
+        }
+      });
+    } else if (notification.type === 'subscription') {
+      navigation.navigate('Subscription');
+    }
+  };
+
+  const getMealTime = (mealType) => {
+    switch (mealType) {
+      case 'BREAKFAST': return '7:30 AM - 9:30 AM';
+      case 'LUNCH': return '12:00 PM - 2:00 PM';
+      case 'SNACKS': return '4:00 PM - 5:30 PM';
+      case 'DINNER': return '7:00 PM - 9:00 PM';
+      default: return '';
+    }
+  };
+
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'meal':
@@ -125,11 +156,7 @@ export default function NotificationsScreen() {
           allNotifications.map((notification, index) => (
             <TouchableOpacity
               key={notification.id}
-              onPress={() => {
-                if (!notification.read && notification.type !== 'local') {
-                  handleMarkAsRead(notification.id);
-                }
-              }}
+              onPress={() => handleNotificationPress(notification)}
               className={`bg-white rounded-2xl p-4 mb-3 shadow-sm ${
                 !notification.read ? 'border-l-4 border-primary' : ''
               }`}

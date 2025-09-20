@@ -166,9 +166,18 @@ router.post('/mess-facilities', authenticateToken, requireRole(['FNB_MANAGER']),
 // Update mess facility
 router.put('/mess-facilities/:id', authenticateToken, requireRole(['FNB_MANAGER']), async (req, res) => {
   try {
+    const { imageFile, ...facilityData } = req.body;
+    
+    let updateData = facilityData;
+    
+    // Handle image upload if provided
+    if (req.file) {
+      updateData.imageUrl = `/uploads/facilities/${req.file.filename}`;
+    }
+
     const facility = await req.prisma.messFacility.update({
       where: { id: req.params.id },
-      data: req.body
+      data: updateData
     });
 
     res.json(facility);
@@ -455,12 +464,15 @@ router.put('/orders/:id', authenticateToken, requireRole(['FNB_MANAGER']), async
   try {
     const { status } = req.body;
 
+    // For orders, set default status to PREPARED for pre-cooked food
+    const updateData = { 
+      status: status === 'CONFIRMED' ? 'PREPARED' : status,
+      servedAt: status === 'SERVED' ? new Date() : undefined
+    };
+
     const order = await req.prisma.order.update({
       where: { id: req.params.id },
-      data: { 
-        status,
-        servedAt: status === 'SERVED' ? new Date() : undefined
-      }
+      data: updateData
     });
 
     res.json(order);
@@ -946,6 +958,63 @@ router.get('/export-transactions', authenticateToken, requireRole(['FNB_MANAGER'
     res.json(csvData);
   } catch (error) {
     console.error('Export transactions error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update menu item
+router.put('/menu-items/:id', authenticateToken, requireRole(['FNB_MANAGER']), async (req, res) => {
+  try {
+    let updateData = req.body;
+    
+    // Handle image upload if provided
+    if (req.file) {
+      updateData.imageUrl = `/uploads/menu-items/${req.file.filename}`;
+    }
+
+    const menuItem = await req.prisma.menuItem.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
+
+    res.status(200).json(menuItem);
+  } catch (error) {
+    console.error('Update menu item error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update package
+router.put('/packages/:id', authenticateToken, requireRole(['FNB_MANAGER']), async (req, res) => {
+  try {
+    const pkg = await req.prisma.package.update({
+      where: { id: req.params.id },
+      data: req.body,
+      include: {
+        messFacility: {
+          select: { name: true }
+        }
+      }
+    });
+
+    res.json(pkg);
+  } catch (error) {
+    console.error('Update package error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update student details
+router.put('/students/:id', authenticateToken, requireRole(['FNB_MANAGER', 'ADMIN']), async (req, res) => {
+  try {
+    const student = await req.prisma.student.update({
+      where: { id: req.params.id },
+      data: req.body
+    });
+
+    res.json(student);
+  } catch (error) {
+    console.error('Update student error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

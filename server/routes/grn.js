@@ -46,6 +46,7 @@ router.post('/', authenticateToken, requireRole(['STORE']), async (req, res) => 
       orderBy: { receivedAt: 'desc' }
     });
     const grnNumber = `GRN${String((lastGRN ? parseInt(lastGRN.grnNo.slice(3)) : 0) + 1).padStart(6, '0')}`;
+    // Don't allow price changes in GRN - use PO prices
 
     const grn = await req.prisma.gRN.create({
       data: {
@@ -169,6 +170,41 @@ router.post('/', authenticateToken, requireRole(['STORE']), async (req, res) => 
     res.status(201).json(fullGRN);
   } catch (error) {
     console.error('Create GRN error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Print GRN
+router.get('/:id/print', authenticateToken, async (req, res) => {
+  try {
+    const grn = await req.prisma.gRN.findUnique({
+      where: { id: req.params.id },
+      include: {
+        po: {
+          include: {
+            vendor: true
+          }
+        },
+        receiver: {
+          select: { name: true }
+        },
+        items: {
+          include: {
+            item: {
+              select: { name: true, unit: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!grn) {
+      return res.status(404).json({ error: 'GRN not found' });
+    }
+
+    res.json(grn);
+  } catch (error) {
+    console.error('Print GRN error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -16,10 +16,47 @@ interface Category {
 const Settings: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [mealTimes, setMealTimes] = useState({
+    breakfast_start: '07:30',
+    breakfast_end: '09:30',
+    lunch_start: '12:00',
+    lunch_end: '14:00',
+    snacks_start: '16:00',
+    snacks_end: '17:30',
+    dinner_start: '19:00',
+    dinner_end: '21:00'
+  });
+  const [savingTimes, setSavingTimes] = useState(false);
 
   useEffect(() => {
+    fetchMealTimes();
     setLoading(false);
   }, []);
+
+  const fetchMealTimes = async () => {
+    try {
+      const response = await api.get('/system-config/meal-times');
+      setMealTimes(response.data);
+    } catch (error) {
+      console.error('Failed to fetch meal times:', error);
+    }
+  };
+
+  const handleMealTimeChange = (key: string, value: string) => {
+    setMealTimes(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveMealTimes = async () => {
+    setSavingTimes(true);
+    try {
+      await api.post('/system-config/meal-times', mealTimes);
+      showSuccess('Success', 'Meal times updated successfully');
+    } catch (error) {
+      showError('Error', 'Failed to update meal times');
+    } finally {
+      setSavingTimes(false);
+    }
+  };
 
 
 
@@ -68,6 +105,94 @@ const Settings: React.FC = () => {
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Meal Times Configuration */}
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-4">Meal Times Configuration</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Breakfast Start</label>
+                <input
+                  type="time"
+                  value={mealTimes.breakfast_start}
+                  onChange={(e) => handleMealTimeChange('breakfast_start', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Breakfast End</label>
+                <input
+                  type="time"
+                  value={mealTimes.breakfast_end}
+                  onChange={(e) => handleMealTimeChange('breakfast_end', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Lunch Start</label>
+                <input
+                  type="time"
+                  value={mealTimes.lunch_start}
+                  onChange={(e) => handleMealTimeChange('lunch_start', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Lunch End</label>
+                <input
+                  type="time"
+                  value={mealTimes.lunch_end}
+                  onChange={(e) => handleMealTimeChange('lunch_end', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Snacks Start</label>
+                <input
+                  type="time"
+                  value={mealTimes.snacks_start}
+                  onChange={(e) => handleMealTimeChange('snacks_start', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Snacks End</label>
+                <input
+                  type="time"
+                  value={mealTimes.snacks_end}
+                  onChange={(e) => handleMealTimeChange('snacks_end', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dinner Start</label>
+                <input
+                  type="time"
+                  value={mealTimes.dinner_start}
+                  onChange={(e) => handleMealTimeChange('dinner_start', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dinner End</label>
+                <input
+                  type="time"
+                  value={mealTimes.dinner_end}
+                  onChange={(e) => handleMealTimeChange('dinner_end', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="mt-4">
+              <button
+                onClick={handleSaveMealTimes}
+                disabled={savingTimes}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+              >
+                {savingTimes ? 'Saving...' : 'Save Meal Times'}
+              </button>
+            </div>
+          </div>
+
           {/* Auto PO Settings */}
           <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
             <div>

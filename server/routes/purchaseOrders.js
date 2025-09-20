@@ -217,4 +217,34 @@ router.delete('/:id', authenticateToken, requireRole(['ADMIN', 'STORE']), async 
   }
 });
 
+router.get('/:id/print', authenticateToken, async (req, res) => {
+  try {
+    const purchaseOrder = await req.prisma.purchaseOrder.findUnique({
+      where: { id: req.params.id },
+      include: {
+        vendor: true,
+        creator: {
+          select: { name: true }
+        },
+        items: {
+          include: {
+            item: {
+              select: { name: true, unit: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!purchaseOrder) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+
+    res.json(purchaseOrder);
+  } catch (error) {
+    console.error('Print purchase order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

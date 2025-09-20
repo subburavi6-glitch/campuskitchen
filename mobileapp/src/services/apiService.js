@@ -116,6 +116,11 @@ class ApiService {
     return response.data;
   }
 
+  async getUnreadNotificationCount() {
+    const response = await this.api.get('/mobile/notifications/unread-count');
+    return response.data;
+  }
+
   async markNotificationRead(notificationId) {
     const response = await this.api.put(`/mobile/notifications/${notificationId}/read`);
     return response.data;

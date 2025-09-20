@@ -14,13 +14,12 @@ interface MealPlanFormProps {
 }
 
 interface MealPlanFormData {
-  messFacilities: string[];
+  messFacilityIds: string[];
   dishes: Array<{
     dishId: string;
     sequenceOrder: number;
     isMainDish: boolean;
   }>;
-  plannedStudents: number;
 }
 
 const MealPlanForm: React.FC<MealPlanFormProps> = ({ 
@@ -38,19 +37,16 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<MealPlanFormData>({
     defaultValues: existingPlan ? {
-      messFacilities: [existingPlan.messFacilityId],
-      dishes: existingPlan.dishes || [{ dishId: '', sequenceOrder: 1, isMainDish: true }],
-      plannedStudents: existingPlan.plannedStudents
+      messFacilityIds: [existingPlan.messFacilityId],
+      dishes: existingPlan.dishes || [{ dishId: '', sequenceOrder: 1, isMainDish: true }]
     } : {
-      messFacilities: messFacilityId ? [messFacilityId] : [],
-      dishes: [{ dishId: '', sequenceOrder: 1, isMainDish: true }],
-      plannedStudents: 100
+      messFacilityIds: messFacilityId ? [messFacilityId] : [],
+      dishes: [{ dishId: '', sequenceOrder: 1, isMainDish: true }]
     }
   });
 
   const watchedDishes = watch('dishes');
-  const watchedStudents = watch('plannedStudents');
-  const watchedFacilities = watch('messFacilities');
+  const watchedFacilities = watch('messFacilityIds');
 
   useEffect(() => {
     fetchDishes();
@@ -95,46 +91,29 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({
     setValue('dishes', newDishes);
   };
 
-  const calculateTotalCost = () => {
-    return watchedDishes.reduce((total, dishItem) => {
-      const dish = dishes.find((d: any) => d.id === dishItem.dishId);
-      if (dish) {
-        const costPer5 = parseFloat(dish.costPer5Students || '0');
-        return total + ((costPer5 / 5) * watchedStudents);
-      }
-      return total;
-    }, 0);
-  };
-
   const toggleFacility = (facilityId: string) => {
     const currentFacilities = watchedFacilities || [];
     const newFacilities = currentFacilities.includes(facilityId)
       ? currentFacilities.filter(id => id !== facilityId)
       : [...currentFacilities, facilityId];
-    setValue('messFacilities', newFacilities);
+    setValue('messFacilityIds', newFacilities);
   };
 
   const onSubmit = async (data: MealPlanFormData) => {
-    if (data.messFacilities.length === 0) {
+    if (data.messFacilityIds.length === 0) {
       showError('Error', 'Please select at least one mess facility');
       return;
     }
 
     setLoading(true);
     try {
-      // Create meal plan for each selected facility
-      const promises = data.messFacilities.map(facilityId =>
-        api.post('/meal-plans', {
-          messFacilityId: facilityId,
-          day,
-          meal,
-          dishes: data.dishes,
-          plannedStudents: data.plannedStudents
-        })
-      );
-
-      await Promise.all(promises);
-      showSuccess('Success', `Meal plan saved for ${data.messFacilities.length} facilities`);
+      await api.post('/meal-plans', {
+        messFacilityIds: data.messFacilityIds,
+        day,
+        meal,
+        dishes: data.dishes
+      });
+      showSuccess('Success', `Meal plan saved for ${data.messFacilityIds.length} facilities`);
       onSuccess();
     } catch (error) {
       console.error('Failed to save meal plan:', error);
@@ -155,7 +134,7 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({
         <h4 className="font-medium text-blue-900">
           Planning {meal} for {getDayName(day)}
         </h4>
-        <p className="text-sm text-blue-700">Day {day} of the week (Monday = 0)</p>
+        <p className="text-sm text-blue-700">Planned students will be calculated automatically from active subscriptions</p>
       </div>
 
       {/* Mess Facilities Selection */}
@@ -183,36 +162,6 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({
               </div>
             </label>
           ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Planned Students *
-          </label>
-          <input
-            type="number"
-            {...register('plannedStudents', { 
-              required: 'Number of students is required',
-              valueAsNumber: true,
-              min: 1
-            })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="100"
-          />
-          {errors.plannedStudents && (
-            <p className="mt-1 text-sm text-red-600">{errors.plannedStudents.message}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Estimated Total Cost
-          </label>
-          <div className="w-full px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-            <span className="text-lg font-bold text-green-700">₹{calculateTotalCost().toFixed(2)}</span>
-          </div>
         </div>
       </div>
 
@@ -283,10 +232,10 @@ const MealPlanForm: React.FC<MealPlanFormProps> = ({
 
                 <div className="col-span-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Cost
+                    Cost/5
                   </label>
                   <p className="text-sm font-medium text-green-600 py-2">
-                    {selectedDish ? `₹${((parseFloat(selectedDish.costPer5Students || '0') / 5) * watchedStudents).toFixed(2)}` : '₹0'}
+                    {selectedDish ? `₹${selectedDish.costPer5Students}` : '₹0'}
                   </p>
                 </div>
 

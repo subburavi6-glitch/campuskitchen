@@ -98,4 +98,61 @@ router.delete('/:key', authenticateToken, requireRole(['ADMIN']), async (req, re
   }
 });
 
+// Get meal times configuration
+router.get('/meal-times', authenticateToken, async (req, res) => {
+  try {
+    const mealTimes = await req.prisma.systemConfig.findMany({
+      where: {
+        key: {
+          in: ['breakfast_start', 'breakfast_end', 'lunch_start', 'lunch_end', 'snacks_start', 'snacks_end', 'dinner_start', 'dinner_end']
+        }
+      }
+    });
+
+    const defaultTimes = {
+      breakfast_start: '07:30',
+      breakfast_end: '09:30',
+      lunch_start: '12:00',
+      lunch_end: '14:00',
+      snacks_start: '16:00',
+      snacks_end: '17:30',
+      dinner_start: '19:00',
+      dinner_end: '21:00'
+    };
+
+    const result = {};
+    Object.keys(defaultTimes).forEach(key => {
+      const config = mealTimes.find(mt => mt.key === key);
+      result[key] = config ? config.value : defaultTimes[key];
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Get meal times error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update meal times
+router.post('/meal-times', authenticateToken, requireRole(['ADMIN']), async (req, res) => {
+  try {
+    const mealTimes = req.body;
+    
+    const updatePromises = Object.entries(mealTimes).map(([key, value]) =>
+      req.prisma.systemConfig.upsert({
+        where: { key },
+        update: { value: value as string },
+        create: { key, value: value as string, category: 'meal_times' }
+      })
+    );
+    
+    await Promise.all(updatePromises);
+    
+    res.json({ message: 'Meal times updated successfully' });
+  } catch (error) {
+    console.error('Update meal times error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

@@ -303,13 +303,41 @@ const Subscriptions: React.FC = () => {
                 {canManage && subscription.status === 'ACTIVE' && (
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => handleStatusUpdate(subscription.id, 'SUSPENDED')}
+                      onClick={async () => {
+                        const result = await showConfirm(
+                          'Suspend Subscription',
+                          `Are you sure you want to suspend ${subscription.student.name}'s subscription?`
+                        );
+                        if (result.isConfirmed) {
+                          await handleStatusUpdate(subscription.id, 'SUSPENDED');
+                          showSuccess('Success', 'Subscription suspended successfully');
+                        }
+                      }}
                       className="text-xs bg-yellow-600 text-white px-2 py-1 rounded hover:bg-yellow-700"
                     >
                       Suspend
                     </button>
+                  </div>
+                )}
+                {canManage && subscription.status === 'SUSPENDED' && (
+                  <div className="flex space-x-2">
                     <button
-                      onClick={() => handleStatusUpdate(subscription.id, 'CANCELLED')}
+                      onClick={() => handleStatusUpdate(subscription.id, 'ACTIVE')}
+                      className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                    >
+                      Activate
+                    </button>
+                    <button
+                      onClick={async () => {
+                        const result = await showConfirm(
+                          'Cancel Subscription',
+                          `Are you sure you want to cancel ${subscription.student.name}'s subscription?`
+                        );
+                        if (result.isConfirmed) {
+                          await handleStatusUpdate(subscription.id, 'CANCELLED');
+                          showSuccess('Success', 'Subscription cancelled successfully');
+                        }
+                      }}
                       className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
                     >
                       Cancel
