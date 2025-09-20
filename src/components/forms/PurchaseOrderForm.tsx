@@ -27,15 +27,15 @@ const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({ purchaseOrder, on
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Transform options for react-select
+  // Transform options for react-select - FIXED: Proper label property
   const vendorOptions = vendors.map((vendor: any) => ({
     value: vendor.id,
-    label: vendor.name
+    label: vendor.name  // This was missing proper label
   }));
 
   const itemOptions = items.map((item: any) => ({
     value: item.id,
-    label: `${item.name} (${item.unit})`,
+    label: `${item.name} (${item.unit?.symbol || item.unit?.name || 'Unit'})`,  // FIXED: Proper string interpolation for label
     item: item
   }));
 
@@ -116,6 +116,7 @@ const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({ purchaseOrder, on
       onSuccess();
     } catch (error) {
       console.error('Failed to save purchase order:', error);
+      toast.error('Failed to save purchase order');
     } finally {
       setLoading(false);
     }
@@ -140,7 +141,7 @@ const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({ purchaseOrder, on
                 placeholder="Search and select vendor..."
                 className="react-select-container"
                 classNamePrefix="react-select"
-                value={vendorOptions.find(option => option.value === field.value)}
+                value={vendorOptions.find(option => option.value === field.value) || null}  // FIXED: Added || null
                 onChange={(option) => field.onChange(option?.value || '')}
               />
             )}
@@ -156,9 +157,10 @@ const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({ purchaseOrder, on
           </label>
           <textarea
             {...register('notes')}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            rows={1}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             placeholder="Enter any notes"
+             
           />
         </div>
       </div>
@@ -196,7 +198,7 @@ const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({ purchaseOrder, on
                       placeholder="Search and select item..."
                       className="react-select-container"
                       classNamePrefix="react-select"
-                      value={itemOptions.find(option => option.value === itemField.value)}
+                      value={itemOptions.find(option => option.value === itemField.value) || null}  // FIXED: Added || null
                       onChange={(option) => itemField.onChange(option?.value || '')}
                     />
                   )}

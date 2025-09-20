@@ -134,20 +134,14 @@ const MessFacilityDetail: React.FC = () => {
         </div>
         {canManage && (
           <div className="flex space-x-2">
-            <button
-              onClick={handleGenerateAutoIndent}
-              className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-            >
-              <Plus size={16} />
-              <span>Generate Auto Indent</span>
-            </button>
-            <button
+            
+            {/* <button
               onClick={() => navigate(`/mess-facilities/${id}/settings`)}
               className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
             >
               <Settings size={16} />
               <span>Settings</span>
-            </button>
+            </button> */}
           </div>
         )}
       </div>

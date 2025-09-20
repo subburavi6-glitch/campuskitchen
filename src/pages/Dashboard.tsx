@@ -10,6 +10,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import api from '../utils/api';
+import { showError } from '../utils/sweetAlert';
 
 interface DashboardStats {
   totalItems: number;
@@ -30,7 +31,7 @@ interface ExpiringItem {
   itemName: string;
   batchNo: string;
   qty: number;
-  unit: string;
+  unit: any;
   expDate: string;
 }
 
@@ -204,7 +205,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-red-600 font-medium">
-                      {item.qty} {item.unit}
+                      {item.qty} {typeof item.unit === 'object' ? (item.unit.symbol ?? item.unit.name ?? '') : item.unit}
                     </p>
                     <p className="text-xs text-red-500">
                       {new Date(item.expDate).toLocaleDateString()}

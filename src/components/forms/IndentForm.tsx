@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { Plus, Trash2 } from 'lucide-react';
 import Select from 'react-select';
 import api from '../../utils/api';
@@ -24,23 +24,17 @@ interface IndentFormData {
 const IndentForm: React.FC<IndentFormProps> = ({ indent, onSuccess, onCancel }) => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  // Transform items for react-select
+  // Transform items for react-select - FIXED: Proper label structure
   const itemOptions = items.map((item: any) => ({
     value: item.id,
-    label: `${item.name} (${item.unit}) - Stock: ${item.totalStock || 0}`,
+    label: `${item.name} (${item.unit?.symbol || item.unit?.name || 'Unit'}) - Stock: ${item.totalStock || 0}`,
     item: item
   }));
-  const { register, control, handleSubmit, formState: { errors } } = useForm<IndentFormData>({
-    defaultValues: indent ? {
-      requestedForDate: new Date(indent.requestedForDate).toISOString().split('T')[0],
-      meal: indent.meal,
-      notes: indent.notes || '',
-      items: indent.items.map((item: any) => ({
-        itemId: item.itemId,
-        requestedQty: item.requestedQty
-      }))
-    } : {
+
+  const { register, control, handleSubmit, reset, formState: { errors } } = useForm<IndentFormData>({
+    defaultValues: {
       requestedForDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       meal: 'LUNCH',
       notes: '',
@@ -57,12 +51,31 @@ const IndentForm: React.FC<IndentFormProps> = ({ indent, onSuccess, onCancel }) 
     fetchItems();
   }, []);
 
+  // FIXED: Reset form with indent data after items are loaded
+  useEffect(() => {
+    if (dataLoaded && indent) {
+      reset({
+        requestedForDate: new Date(indent.requestedForDate).toISOString().split('T')[0],
+        meal: indent.meal,
+        notes: indent.notes || '',
+        items: indent.items?.length > 0 
+          ? indent.items.map((item: any) => ({
+              itemId: item.itemId || '',
+              requestedQty: item.requestedQty || '0'
+            }))
+          : [{ itemId: '', requestedQty: '0' }]
+      });
+    }
+  }, [dataLoaded, indent, reset]);
+
   const fetchItems = async () => {
     try {
       const response = await api.get('/items');
-      setItems(response.data);
+      setItems(response.data || []);
+      setDataLoaded(true);
     } catch (error) {
       console.error('Failed to fetch items:', error);
+      setDataLoaded(true);
     }
   };
 
@@ -127,8 +140,9 @@ const IndentForm: React.FC<IndentFormProps> = ({ indent, onSuccess, onCancel }) 
           <textarea
             {...register('notes')}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
             placeholder="Enter any notes or special requirements"
+            style={{ height: '76px' }}
           />
         </div>
       </div>
@@ -152,24 +166,35 @@ const IndentForm: React.FC<IndentFormProps> = ({ indent, onSuccess, onCancel }) 
             <div key={field.id} className="grid grid-cols-12 gap-4 items-end p-4 bg-gray-50 rounded-lg">
               <div className="col-span-8">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Item
+                  Item *
                 </label>
-                <Select
-                  options={itemOptions}
-                  isSearchable
-                  placeholder="Search and select item..."
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  onChange={(option) => {
-                    setValue(`items.${index}.itemId`, option?.value || '');
-                  }}
-                  defaultValue={itemOptions.find(opt => opt.value === field.itemId)}
+                {/* FIXED: Using Controller properly */}
+                <Controller
+                  name={`items.${index}.itemId`}
+                  control={control}
+                  rules={{ required: 'Item is required' }}
+                  render={({ field: itemField }) => (
+                    <Select
+                      {...itemField}
+                      options={itemOptions}
+                      isSearchable
+                      placeholder="Search and select item..."
+                      className="react-select-container"
+                      classNamePrefix="react-select"
+                      value={itemOptions.find(option => option.value === itemField.value) || null}
+                      onChange={(option) => itemField.onChange(option?.value || '')}
+                      isDisabled={!dataLoaded}
+                    />
+                  )}
                 />
+                {errors.items?.[index]?.itemId && (
+                  <p className="mt-1 text-sm text-red-600">{errors.items[index]?.itemId?.message}</p>
+                )}
               </div>
 
               <div className="col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Requested Quantity
+                  Requested Quantity *
                 </label>
                 <input
                   type="text"
@@ -179,6 +204,9 @@ const IndentForm: React.FC<IndentFormProps> = ({ indent, onSuccess, onCancel }) 
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter quantity"
                 />
+                {errors.items?.[index]?.requestedQty && (
+                  <p className="mt-1 text-sm text-red-600">{errors.items[index]?.requestedQty?.message}</p>
+                )}
               </div>
 
               <div className="col-span-1">
@@ -207,7 +235,7 @@ const IndentForm: React.FC<IndentFormProps> = ({ indent, onSuccess, onCancel }) 
         </button>
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !dataLoaded}
           className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
         >
           {loading ? 'Saving...' : indent ? 'Update Indent' : 'Create Indent'}

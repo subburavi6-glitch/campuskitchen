@@ -179,8 +179,8 @@ const Vendors: React.FC = () => {
                 <p className="text-xs text-gray-500">Items</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">{vendor._count.purchaseOrders}</p>
-                <p className="text-xs text-gray-500">Purchase Orders</p>
+                 <p className="text-2xl font-bold text-green-600">{vendor._count.purchaseOrders}</p>
+                <p className="text-xs text-gray-500">Pending Purchase Orders</p>
               </div>
             </div>
 
@@ -241,7 +241,7 @@ const Vendors: React.FC = () => {
       <Modal
         isOpen={showModal}
         onClose={handleFormCancel}
-        title={selectedVendor ? 'Edit Vendor' : 'Add New Vendor'}
+        title={selectedVendor ? 'Edit Vendor' : 'Add  Vendor'}
         size="lg"
       >
         <VendorForm

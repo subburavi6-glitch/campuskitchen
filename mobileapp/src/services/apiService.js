@@ -2,8 +2,8 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import Toast from 'react-native-toast-message';
 
-const BASE_URL = 'https://foodserver.orfus.in/api';
-//const BASE_URL = 'http://192.168.1.7:3001/api';
+//const BASE_URL = 'https://foodserver.orfus.in/api';
+const BASE_URL = 'http://192.168.1.10:3001/api';
 
 class ApiService {
   constructor() {

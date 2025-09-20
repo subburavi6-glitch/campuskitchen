@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Modal from '../components/Modal';
 import DishForm from '../components/forms/DishForm';
 import { showSuccess, showError, showConfirm } from '../utils/sweetAlert';
+import { SERVERURL } from '../utils/paths';
 
 interface Dish {
   id: string;
@@ -15,7 +16,7 @@ interface Dish {
   costPer5Students: string;
   recipes: Array<{
     qtyPer5Students: string;
-    item: { name: string; unit: string };
+    item: { name: string; unit: any };
   }>;
 }
 
@@ -139,7 +140,7 @@ const Dishes: React.FC = () => {
             {dish.imageUrl && (
               <div className="w-full h-32 mb-4 rounded-lg overflow-hidden">
                 <img
-                  src={dish.imageUrl}
+                  src={SERVERURL+dish.imageUrl}
                   alt={dish.name}
                   className="w-full h-full object-cover"
                 />
@@ -272,7 +273,7 @@ const Dishes: React.FC = () => {
             {viewDish.imageUrl && (
               <div className="text-center">
                 <img
-                  src={viewDish.imageUrl}
+                  src={SERVERURL+viewDish.imageUrl}
                   alt={viewDish.name}
                   className="max-h-48 mx-auto rounded-lg"
                 />
@@ -322,7 +323,7 @@ const Dishes: React.FC = () => {
                             {(parseFloat(recipe.qtyPer5Students) / 5 * 1000).toFixed(0)}g
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {(parseFloat(recipe.qtyPer5Students) * 20).toFixed(2)} {recipe.item.unit}
+                            {(parseFloat(recipe.qtyPer5Students) * 20).toFixed(2)} {typeof recipe.item.unit === 'object' ? (recipe.item.unit.symbol ?? recipe.item.unit.name ?? '') : recipe.item.unit}
                           </td>
                         </tr>
                       ))}

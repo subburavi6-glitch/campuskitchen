@@ -26,8 +26,8 @@ cron.schedule('*/5 * * * *', async () => {
         },
         mealPlan: {
           include: {
-            dish: {
-              select: { name: true }
+            dishes: {
+              select: { dish: true }
             }
           }
         }

@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { showError } from './sweetAlert';
-
+ import { SERVERURL } from './paths';
 const api = axios.create({
-  baseURL: 'http://localhost:3001/api',
+  baseURL: SERVERURL+'/api',
   headers: {
     'Content-Type': 'application/json',
   },

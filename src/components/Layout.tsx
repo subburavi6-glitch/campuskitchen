@@ -36,7 +36,7 @@ const menuItems = [
   { path: '/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders', roles: ['ADMIN', 'STORE'] },
   { path: '/grn', icon: FileText, label: 'GRN', roles: ['ADMIN', 'STORE'] },
   { path: '/indents', icon: ClipboardList, label: 'Indents', roles: ['ADMIN', 'CHEF', 'STORE', 'COOK'] },
-  { path: '/issues', icon: Send, label: 'Issues', roles: ['ADMIN', 'STORE'] },
+  { path: '/issues', icon: Send, label: 'Indent Issues', roles: ['ADMIN', 'STORE'] },
   
   // Food & Menu Management
   { path: '/dishes', icon: Chef, label: 'Dishes', roles: ['ADMIN', 'CHEF', 'FNB_MANAGER'] },

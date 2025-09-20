@@ -423,6 +423,7 @@ const Indents: React.FC = () => {
         isOpen={showDrawer}
         onClose={handleDrawerCancel}
         title={selectedIndent ? 'Edit Indent' : 'Create Indent'}
+        size='xl'
       >
         <IndentForm
           indent={selectedIndent}

@@ -130,7 +130,7 @@ const Items: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Inventory Items</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Items</h1>
         <button
           onClick={() => setShowModal(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
@@ -281,7 +281,7 @@ const Items: React.FC = () => {
       <Modal
         isOpen={showModal}
         onClose={handleFormCancel}
-        title={selectedItem ? 'Edit Item' : 'Add New Item'}
+        title={selectedItem ? 'Edit Item' : 'Add Item'}
         size="xl"
       >
         <ItemForm

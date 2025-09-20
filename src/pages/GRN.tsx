@@ -18,7 +18,7 @@ interface GRN {
   };
   receiver: { name: string };
   items: Array<{
-    item: { name: string; unit: string };
+  item: { name: string; unit: any };
     receivedQty: number;
     unitCost: number;
     batchNo: string;
@@ -180,11 +180,11 @@ const GRN: React.FC = () => {
             <div className="border-t pt-4">
               <h4 className="font-medium text-gray-900 mb-2">Items Received</h4>
               <div className="space-y-1 max-h-32 overflow-y-auto">
-                {grn.items.map((item, itemIndex) => (
+        {grn.items.map((item, itemIndex) => (
                   <div key={itemIndex} className="flex justify-between text-sm">
                     <span className="text-gray-600">{item.item.name}</span>
                     <span className="font-medium">
-                      {item.receivedQty} {item.item.unit}
+          {item.receivedQty} {typeof item.item.unit === 'object' ? (item.item.unit.symbol ?? item.item.unit.name ?? '') : item.item.unit}
                     </span>
                   </div>
                 ))}
@@ -326,7 +326,7 @@ const GRN: React.FC = () => {
                           {item.batchNo}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.receivedQty} {item.item.unit}
+                          {item.receivedQty} {typeof item.item.unit === 'object' ? (item.item.unit.symbol ?? item.item.unit.name ?? '') : item.item.unit}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           ₹{item.unitCost.toFixed(2)}

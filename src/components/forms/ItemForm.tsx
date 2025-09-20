@@ -33,8 +33,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ item, onSuccess, onCancel }) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(item?.imageUrl || null);
   const [loading, setLoading] = useState(false);
-
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<ItemFormData>({
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<ItemFormData>({
     defaultValues: item ? {
       name: item.name,
       sku: item.sku,
@@ -64,6 +63,47 @@ const ItemForm: React.FC<ItemFormProps> = ({ item, onSuccess, onCancel }) => {
     }
   });
 
+  // Ensure form is reset when `item` prop changes (so selects keep their values on edit)
+  useEffect(() => {
+    if (item) {
+      // prefer explicit id fields, fall back to nested objects returned in list endpoints
+      reset({
+        name: item.name || '',
+        sku: item.sku || '',
+        unitId: item.unitId || item.unit?.id || '',
+        categoryId: item.categoryId || item.category?.id || '',
+        vendorId: item.vendorId || item.vendor?.id || '',
+        storageTypeId: item.storageTypeId || item.storageType?.id || '',
+        moq: item.moq ?? 0,
+        reorderPoint: item.reorderPoint ?? 0,
+        perishable: !!item.perishable,
+        barcode: item.barcode || '',
+        costPerUnit: item.costPerUnit ? Number(item.costPerUnit) : 0,
+        pointsValue: item.pointsValue ?? 0,
+      });
+
+      // ensure image preview is in-sync
+      setImagePreview(item.imageUrl || null);
+    } else {
+      // reset to defaults when no item
+      reset({
+        name: '',
+        sku: '',
+        unitId: '',
+        categoryId: '',
+        vendorId: '',
+        storageTypeId: '',
+        moq: 0,
+        reorderPoint: 0,
+        perishable: false,
+        barcode: '',
+        costPerUnit: 0,
+        pointsValue: 0,
+      });
+      setImagePreview(null);
+    }
+  }, [item, reset]);
+
   const watchedMOQ = watch('moq');
 
   useEffect(() => {
@@ -82,6 +122,8 @@ const ItemForm: React.FC<ItemFormProps> = ({ item, onSuccess, onCancel }) => {
     try {
       const response = await api.get('/items/categories');
       setCategories(response.data);
+  // ensure category value is set when options arrive
+  if (item) setValue('categoryId', item.categoryId || item.category?.id || '');
     } catch (error) {
       console.error('Failed to fetch categories:', error);
     }
@@ -91,6 +133,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ item, onSuccess, onCancel }) => {
     try {
       const response = await api.get('/vendors');
       setVendors(response.data);
+  if (item) setValue('vendorId', item.vendorId || item.vendor?.id || '');
     } catch (error) {
       console.error('Failed to fetch vendors:', error);
     }
@@ -100,6 +143,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ item, onSuccess, onCancel }) => {
     try {
       const response = await api.get('/admin-config/units');
       setUnits(response.data.filter((unit: any) => unit.active));
+  if (item) setValue('unitId', item.unitId || item.unit?.id || '');
     } catch (error) {
       console.error('Failed to fetch units:', error);
     }
@@ -109,6 +153,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ item, onSuccess, onCancel }) => {
     try {
       const response = await api.get('/admin-config/storage-types');
       setStorageTypes(response.data.filter((type: any) => type.active));
+  if (item) setValue('storageTypeId', item.storageTypeId || item.storageType?.id || '');
     } catch (error) {
       console.error('Failed to fetch storage types:', error);
     }
@@ -351,21 +396,7 @@ const ItemForm: React.FC<ItemFormProps> = ({ item, onSuccess, onCancel }) => {
           )}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Points Value
-          </label>
-          <input
-            type="number"
-            {...register('pointsValue', { 
-              valueAsNumber: true, 
-              min: { value: 0, message: 'Points cannot be negative' }
-            })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="0"
-          />
-          <p className="mt-1 text-xs text-gray-500">Points used in purchase order calculations</p>
-        </div>
+      
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">

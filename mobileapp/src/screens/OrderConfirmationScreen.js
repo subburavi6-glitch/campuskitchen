@@ -3,25 +3,25 @@ import { View, Text, ScrollView, TouchableOpacity, Share, Alert } from 'react-na
 import { Ionicons } from '@expo/vector-icons';
 import QRCode from 'react-native-qrcode-svg';
 import Toast from 'react-native-toast-message';
-// import * as Sharing from 'expo-sharing';
+import * as Sharing from 'expo-sharing';
 
 export default function OrderConfirmationScreen({ route, navigation }) {
   const { order, qrCode } = route.params;
-  console.log('Order data:', order);
-   const handleShareQR = async () => {
+  
+  const handleShareQR = async () => {
     try {
+      // Use React Native's built-in Share API instead of expo-sharing for text/data
       const shareOptions = {
         title: 'Mess Order QR Code',
-        message: `Order #${order.orderNumber} - Total: ₹${order.totalAmount}`,
-        url: `data:text/plain;base64,${btoa(qrCode)}`, // Convert QR data to shareable format
+        message: `Order #${order.orderNumber}\nMeal: ${order.mealType}\nTotal: ₹${order.totalAmount}\n\nQR Code Data: ORDER-${order.orderNumber}\n\nShow this at the mess counter to collect your order.`,
       };
 
-    // await Sharing.shareAsync(shareOptions);
+      await Share.share(shareOptions);
       
       Toast.show({
         type: 'success',
-        text1: 'QR Code Shared',
-        text2: 'QR code has been shared successfully',
+        text1: 'Order Details Shared',
+        text2: 'Order information has been shared successfully',
       });
     } catch (error) {
       if (error.message !== 'User did not share') {
@@ -29,9 +29,25 @@ export default function OrderConfirmationScreen({ route, navigation }) {
         Toast.show({
           type: 'error',
           text1: 'Share Failed',
-          text2: 'Failed to share QR code',
+          text2: 'Failed to share order details',
         });
       }
+    }
+  };
+
+  // Alternative method to share QR as image (if you want to implement later)
+  const handleShareQRAsImage = async () => {
+    try {
+      // This would require react-native-view-shot or similar library
+      // For now, we'll use the text sharing method above
+      
+      Toast.show({
+        type: 'info',
+        text1: 'Feature Coming Soon',
+        text2: 'QR image sharing will be available soon',
+      });
+    } catch (error) {
+      console.error('Share error:', error);
     }
   };
 
@@ -97,19 +113,9 @@ export default function OrderConfirmationScreen({ route, navigation }) {
               >
                 <View className="flex-row items-center justify-center">
                   <Ionicons name="share-outline" size={20} color="#fff" />
-                  <Text className="text-white font-semibold ml-2">Share QR</Text>
+                  <Text className="text-white font-semibold ml-2">Share Details</Text>
                 </View>
               </TouchableOpacity>
-              
-              {/* <TouchableOpacity
-                onPress={() => navigation.navigate('OrderTracking', { orderId: order.id })}
-                className="bg-blue-600 px-6 py-3 rounded-xl flex-1"
-              >
-                <View className="flex-row items-center justify-center">
-                  <Ionicons name="eye-outline" size={20} color="#fff" />
-                  <Text className="text-white font-semibold ml-2">Track</Text>
-                </View>
-              </TouchableOpacity> */}
             </View>
           </View>
         </View>

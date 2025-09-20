@@ -76,7 +76,8 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'STORE']), upload.sing
     if (itemData.moq) itemData.moq = parseInt(itemData.moq);
     if (itemData.reorderPoint) itemData.reorderPoint = parseInt(itemData.reorderPoint);
     if (itemData.perishable) itemData.perishable = itemData.perishable === 'true';
-    
+    if (itemData.pointsValue) itemData.pointsValue = parseInt(itemData.pointsValue);
+
     // Add image URL if file was uploaded
     if (req.file) {
       itemData.imageUrl = `/uploads/items/${req.file.filename}`;
@@ -86,7 +87,7 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'STORE']), upload.sing
       data: itemData,
       include: {
         category: true,
-        preferredVendor: true
+        vendor: true
       }
     });
 
@@ -106,7 +107,8 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN', 'STORE']), upload.si
     if (itemData.moq) itemData.moq = parseInt(itemData.moq);
     if (itemData.reorderPoint) itemData.reorderPoint = parseInt(itemData.reorderPoint);
     if (itemData.perishable) itemData.perishable = itemData.perishable === 'true';
-    
+        if (itemData.pointsValue) itemData.pointsValue = parseInt(itemData.pointsValue);
+
     // Add image URL if file was uploaded
     if (req.file) {
       itemData.imageUrl = `/uploads/items/${req.file.filename}`;
@@ -117,7 +119,7 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN', 'STORE']), upload.si
       data: itemData,
       include: {
         category: true,
-        preferredVendor: true
+        vendor: true
       }
     });
 

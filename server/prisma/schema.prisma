@@ -236,6 +236,7 @@ model MealAttendance {
   studentId       String    @map("student_id")
   mealPlanId      String    @map("meal_plan_id")
   attended        Boolean   @default(false)
+  willAttend      Boolean   @default(true)
   attendedAt      DateTime? @map("attended_at")
   scannerVerified Boolean   @default(false) @map("scanner_verified")
   scannerDeviceId String?   @map("scanner_device_id")

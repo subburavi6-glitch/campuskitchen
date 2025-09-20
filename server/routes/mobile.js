@@ -311,7 +311,7 @@ router.get('/meals/weekly/by-user', authenticateToken1, async (req, res) => {
               dishName: dishNames,
               time: getMealTime(plan.meal),
               attended: attendance?.attended || false,
-              willAttend: preference?.willAttend !== null ? preference.willAttend : true
+              willAttend: preference?.willAttend !== null ? preference?.willAttend : true
             };
           })
       });

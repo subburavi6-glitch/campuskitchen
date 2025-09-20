@@ -185,14 +185,6 @@ export default function MealPlanScreen({ navigation }) {
                   </Text>
                 </View>
 
-                <View className="bg-blue-50 rounded-xl p-3">
-                  <Text className="text-blue-800 text-center text-sm">
-                    {meal.attended 
-                      ? '✅ Attended - Use QR scanner at mess for future attendance'
-                      : '📱 Use QR scanner at mess entrance for attendance'
-                    }
-                  </Text>
-                </View>
               </View>
             ))}
           </View>

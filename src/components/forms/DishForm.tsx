@@ -3,6 +3,8 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { Plus, Trash2, Upload, X } from 'lucide-react';
 import api from '../../utils/api';
 import toast from 'react-hot-toast';
+import { showSuccess, showError } from '../../utils/sweetAlert'; // FIXED: Added missing import
+import { SERVERURL } from '../../utils/paths';
 
 interface DishFormProps {
   dish?: any;
@@ -24,16 +26,10 @@ const DishForm: React.FC<DishFormProps> = ({ dish, onSuccess, onCancel }) => {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(dish?.imageUrl || null);
   const [loading, setLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false); // FIXED: Added data loading state
 
-  const { register, control, handleSubmit, formState: { errors }, watch } = useForm<DishFormData>({
-    defaultValues: dish ? {
-      name: dish.name,
-      category: dish.category || '',
-      recipes: dish.recipes.map((recipe: any) => ({
-        itemId: recipe.itemId,
-        qtyPer5Students: parseFloat(recipe.qtyPer5Students)
-      }))
-    } : {
+  const { register, control, handleSubmit, formState: { errors }, watch, reset } = useForm<DishFormData>({
+    defaultValues: {
       name: '',
       category: '',
       recipes: [{ itemId: '', qtyPer5Students: 0 }]
@@ -46,16 +42,35 @@ const DishForm: React.FC<DishFormProps> = ({ dish, onSuccess, onCancel }) => {
   });
 
   const watchedRecipes = watch('recipes');
+
   useEffect(() => {
     fetchItems();
   }, []);
 
+  // FIXED: Reset form with dish data after items are loaded
+  useEffect(() => {
+    if (dataLoaded && dish) {
+      reset({
+        name: dish.name || '',
+        category: dish.category || '',
+        recipes: dish.recipes?.length > 0 
+          ? dish.recipes.map((recipe: any) => ({
+              itemId: recipe.itemId || '',
+              qtyPer5Students: parseFloat(recipe.qtyPer5Students) || 0
+            }))
+          : [{ itemId: '', qtyPer5Students: 0 }]
+      });
+    }
+  }, [dataLoaded, dish, reset]);
+
   const fetchItems = async () => {
     try {
       const response = await api.get('/items');
-      setItems(response.data);
+      setItems(response.data || []);
+      setDataLoaded(true); // FIXED: Set data loaded after fetching
     } catch (error) {
       console.error('Failed to fetch items:', error);
+      setDataLoaded(true);
     }
   };
 
@@ -68,6 +83,7 @@ const DishForm: React.FC<DishFormProps> = ({ dish, onSuccess, onCancel }) => {
       return total;
     }, 0);
   };
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -109,7 +125,7 @@ const DishForm: React.FC<DishFormProps> = ({ dish, onSuccess, onCancel }) => {
         });
         showSuccess('Success', 'Dish created successfully');
       }
-      onSuccess();
+      onSuccess(); // FIXED: This will close the modal
     } catch (error) {
       console.error('Failed to save dish:', error);
       showError('Error', 'Failed to save dish');
@@ -163,7 +179,7 @@ const DishForm: React.FC<DishFormProps> = ({ dish, onSuccess, onCancel }) => {
           {imagePreview ? (
             <div className="relative">
               <img
-                src={imagePreview}
+                src={SERVERURL+imagePreview}
                 alt="Preview"
                 className="max-h-32 rounded-lg"
               />
@@ -218,36 +234,46 @@ const DishForm: React.FC<DishFormProps> = ({ dish, onSuccess, onCancel }) => {
             <div key={field.id} className="grid grid-cols-12 gap-4 items-end p-4 bg-gray-50 rounded-lg">
               <div className="col-span-8">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ingredient
+                  Ingredient *
                 </label>
                 <select
                   {...register(`recipes.${index}.itemId`, { required: 'Ingredient is required' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  disabled={!dataLoaded} // FIXED: Disable until data is loaded
                 >
-                  <option value="">Select Ingredient</option>
+                  <option value="">
+                    {dataLoaded ? 'Select Ingredient' : 'Loading ingredients...'}
+                  </option>
                   {items.map((item: any) => (
                     <option key={item.id} value={item.id}>
-                      {item.name} ({item.unit.symbol})
+                      {item.name} ({item.unit?.symbol || item.unit?.name || 'Unit'}) {/* FIXED: Handle missing unit */}
                     </option>
                   ))}
                 </select>
+                {errors.recipes?.[index]?.itemId && (
+                  <p className="mt-1 text-sm text-red-600">{errors.recipes[index]?.itemId?.message}</p>
+                )}
               </div>
 
               <div className="col-span-3">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Qty for 5 Students (kg)
+                  Qty for 5 Students *
                 </label>
                 <input
                   type="number"
                   step="0.001"
+                  min="0"
                   {...register(`recipes.${index}.qtyPer5Students`, { 
                     required: 'Quantity is required',
                     valueAsNumber: true,
-                    min: 0.001
+                    min: { value: 0.001, message: 'Quantity must be greater than 0' }
                   })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="0.250"
                 />
+                {errors.recipes?.[index]?.qtyPer5Students && (
+                  <p className="mt-1 text-sm text-red-600">{errors.recipes[index]?.qtyPer5Students?.message}</p>
+                )}
               </div>
 
               <div className="col-span-1">
@@ -276,7 +302,7 @@ const DishForm: React.FC<DishFormProps> = ({ dish, onSuccess, onCancel }) => {
         </button>
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || !dataLoaded}
           className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
         >
           {loading ? 'Saving...' : dish ? 'Update Dish' : 'Create Dish'}
